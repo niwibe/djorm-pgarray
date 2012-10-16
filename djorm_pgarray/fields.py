@@ -45,11 +45,11 @@ try:
         (
             [ArrayField], # class
             [],           # positional params
-            {'dbtype': [
-                "_array_type", {"default" : "int"},
-                "_dimension", {"default" : 1},
-            ]},
+            {
+                "dbtype": ["_array_type", {"default": "int"}],
+                "dimension": ["_dimension", {"default": 1}],
+            }
         )
-    ], ['djorm_pgarray.fields.ArrayField'])
+    ], ['^djorm_pgarray\.fields\.ArrayField'])
 except ImportError:
     pass
