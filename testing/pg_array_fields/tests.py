@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from django.test import TestCase
+from django.core.serializers import serialize, deserialize
 
 from djorm_expressions.base import SqlExpression
 from .models import IntModel, TextModel, DoubleModel, MTextModel
@@ -49,3 +50,25 @@ class ArrayFieldTests(TestCase):
         obj = MTextModel.objects.create(data=[[u"1",u"2"],[u"3",u"ñ"]])
         obj = MTextModel.objects.get(pk=obj.pk)
         self.assertEqual(obj.data, [[u"1",u"2"],[u"3",u"ñ"]])
+
+    def test_value_to_string_serializes_correctly(self):
+        obj = MTextModel.objects.create(data=[[u"1",u"2"],[u"3",u"ñ"]])
+        obj_int = IntModel.objects.create(lista=[1,2,3])
+
+        serialized_obj = serialize('json', MTextModel.objects.filter(pk=obj.pk))
+        serialized_obj_int = serialize('json', IntModel.objects.filter(pk=obj_int.pk))
+
+        obj.delete()
+        obj_int.delete()
+
+        deserialized_obj = list(deserialize('json', serialized_obj))[0]
+        deserialized_obj_int = list(deserialize('json', serialized_obj_int))[0]
+
+        obj = deserialized_obj.object
+        obj_int = deserialized_obj_int.object
+        obj.save()
+        obj_int.save()
+
+
+        self.assertEqual(obj.data, [[u"1",u"2"],[u"3",u"ñ"]])
+        self.assertEqual(obj_int.lista, [1,2,3])

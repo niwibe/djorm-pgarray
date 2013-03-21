@@ -38,6 +38,9 @@ class ArrayField(models.Field):
     def to_python(self, value):
         return _cast_to_unicode(value)
 
+    def value_to_string(self, obj):
+        value = self._get_val_from_obj(obj)
+        return self.get_prep_value(value)
 
 # South support
 try:
