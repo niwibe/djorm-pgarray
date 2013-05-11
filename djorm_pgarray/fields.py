@@ -60,11 +60,19 @@ except ImportError:
     pass
 
 class ArrayFormField(forms.Field):
+    
+    def __init__(self, max_length=None, min_length=None, delim=None, *args, **kwargs):
+        if delim is not None:
+            self.delim = delim
+        else:
+            self.delim = ','
+        super(ArrayFormField, self).__init__(*args, **kwargs)
+
     def clean(self, value):
         try:
-            return value.split(',')
-        except :
+            return value.split(self.delim)
+        except:
             raise ValidationError
 
     def to_python(self, value):
-        return value.split(',')
+        return value.split(self.delim)
