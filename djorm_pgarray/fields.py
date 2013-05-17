@@ -1,14 +1,16 @@
 # -*- coding: utf-8 -*-
 
 from django.db import models
-from django.utils.encoding import force_unicode
+from django.utils import six
+from django.utils.encoding import force_text
 from django import forms
+
 
 def _cast_to_unicode(data):
     if isinstance(data, (list, tuple)):
         return [_cast_to_unicode(x) for x in data]
     elif isinstance(data, str):
-        return force_unicode(data)
+        return force_text(data)
     return data
 
 
@@ -28,7 +30,7 @@ class ArrayField(models.Field):
 
     def get_db_prep_value(self, value, connection, prepared=False):
         value = value if prepared else self.get_prep_value(value)
-        if not value or isinstance(value, basestring):
+        if not value or isinstance(value, six.string_types):
             return value
 
         return value
@@ -59,8 +61,9 @@ try:
 except ImportError:
     pass
 
+
 class ArrayFormField(forms.Field):
-    
+
     def __init__(self, max_length=None, min_length=None, delim=None, *args, **kwargs):
         if delim is not None:
             self.delim = delim
