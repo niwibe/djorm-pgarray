@@ -4,6 +4,8 @@ from django.db import models
 from django.utils import six
 from django.utils.encoding import force_text
 from django import forms
+from django.utils.translation import ugettext_lazy as _
+from django.core.exceptions import ValidationError
 
 
 def _cast_to_unicode(data):
@@ -64,6 +66,10 @@ except ImportError:
 
 class ArrayFormField(forms.Field):
 
+    error_messages = {
+        'invalid': _('Enter a list of values, joined by commas.  E.g. "a,b,c".'),
+    }
+
     def __init__(self, max_length=None, min_length=None, delim=None, *args, **kwargs):
         if delim is not None:
             self.delim = delim
@@ -75,7 +81,10 @@ class ArrayFormField(forms.Field):
         try:
             return value.split(self.delim)
         except:
-            raise ValidationError
+            raise ValidationError(self.error_messages['invalid'])
+
+    def prepare_value(self, value):
+        return self.delim.join(value)
 
     def to_python(self, value):
         return value.split(self.delim)
