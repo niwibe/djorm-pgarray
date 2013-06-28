@@ -27,6 +27,10 @@ class ArrayField(models.Field):
         kwargs.setdefault('default', None)
         super(ArrayField, self).__init__(*args, **kwargs)
 
+    def formfield(self, **params):
+        params['form_class'] = ArrayFormField
+        return super(ArrayField, self).formfield(**params)
+
     def db_type(self, connection):
         return '{0}{1}'.format(self._array_type, "[]" * self._dimension)
 
