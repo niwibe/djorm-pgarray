@@ -88,7 +88,11 @@ class ArrayFormField(forms.Field):
             raise ValidationError(self.error_messages['invalid'])
 
     def prepare_value(self, value):
-        return self.delim.join(value)
+        if value:
+            return self.delim.join(value)
+        else:
+            return super(ArrayFormField, self).prepare_value(value)
+
 
     def to_python(self, value):
         return value.split(self.delim)

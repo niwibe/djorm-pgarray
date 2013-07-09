@@ -1,10 +1,14 @@
 # -*- coding: utf-8 -*-
+from django.contrib.admin import AdminSite, ModelAdmin
 
 from django.test import TestCase
 from django.core.serializers import serialize, deserialize
 
 from djorm_expressions.base import SqlExpression
+from djorm_pgarray.fields import ArrayFormField
 from .models import IntModel, TextModel, DoubleModel, MTextModel
+from .forms import IntArrayFrom
+
 
 class ArrayFieldTests(TestCase):
     def setUp(self):
@@ -72,3 +76,24 @@ class ArrayFieldTests(TestCase):
 
         self.assertEqual(obj.data, [[u"1",u"2"],[u"3",u"ñ"]])
         self.assertEqual(obj_int.lista, [1,2,3])
+
+
+class ArrayFormFieldTests(TestCase):
+
+
+    def test_regular_forms(self):
+        form = IntArrayFrom()
+        self.assertFalse(form.is_valid())
+        form = IntArrayFrom({'lista':u'[1,2]'})
+        self.assertTrue(form.is_valid())
+
+    def test_admin_forms(self):
+        site = AdminSite()
+        model_admin = ModelAdmin(IntModel, site)
+        form_clazz = model_admin.get_form(None)
+        form_instance = form_clazz()
+
+        try:
+            form_instance.as_table()
+        except TypeError:
+            self.fail('HTML Rendering of the form caused a TypeError')
