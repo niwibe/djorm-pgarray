@@ -8,12 +8,75 @@ from django.utils.translation import ugettext_lazy as _
 from django.core.exceptions import ValidationError
 
 
+class SerializableList(list):
+    """
+    A list that can convert to a JSON list or an XML string, depending on the
+    serialization method
+    """
+    def replace(self, old, new, count=None):
+        """
+        Replace old with new in every list item
+        """
+        result = SerializableList([])
+        for item in self.__iter__():
+            if not isinstance(item, basestring):
+                result.append(item)
+            else:
+                result.append(item.replace(old, new))
+            if count is not None and len(result) == count:
+                break
+        return result
+
+    def encode(self, encoding=None, errors='strict'):
+        import sys
+        encoding = encoding or sys.getdefaultencoding()
+        result = SerializableList([])
+        for item in self.__iter__():
+            if not isinstance(item, basestring):
+                result.append(item)
+            else:
+                result.append(item.encode(encoding, errors))
+        return result
+
+    def decode(self, encoding=None, errors='strict'):
+        import sys
+        encoding = encoding or sys.getdefaultencoding()
+        result = SerializableList([])
+        for item in self.__iter__():
+            if not isinstance(item, basestring):
+                result.append(item)
+            else:
+                result.append(item.decode(encoding, errors))
+        return result
+
+    def __repr__(self):
+        import json
+        return json.dumps(list(self.__iter__()))
+
+
 def _cast_to_unicode(data):
-    if isinstance(data, (list, tuple)):
-        return [_cast_to_unicode(x) for x in data]
-    elif isinstance(data, str):
+    if isinstance(data, (list, tuple, SerializableList)):
+        return SerializableList([_cast_to_unicode(x) for x in data])
+    elif isinstance(data, six.string_types):
         return force_text(data)
     return data
+
+
+def _sub_unicode(value):
+    import re
+    return re.sub(r"\\u([0-9a-f]{4})", lambda m: unichr(int(m.group(1), 16)), value)
+
+
+def _unserialize(value):
+    if not isinstance(value, six.string_types):
+        return _cast_to_unicode(value)
+    import json
+    value2 = _sub_unicode(value)
+    try:
+        jsonval = json.loads(value2)
+        return _cast_to_unicode(jsonval)
+    except ValueError:
+        return _cast_to_unicode(value)
 
 
 class ArrayField(models.Field):
@@ -36,8 +99,16 @@ class ArrayField(models.Field):
 
     def get_db_prep_value(self, value, connection, prepared=False):
         value = value if prepared else self.get_prep_value(value)
-        if not value or isinstance(value, six.string_types):
+        if not value:
             return value
+        elif isinstance(value, six.string_types):
+            import json
+            value2 = _sub_unicode(value)
+            try:
+                jsonval = json.loads(value2)
+                return jsonval
+            except ValueError:
+                return value
 
         return value
 
@@ -45,7 +116,7 @@ class ArrayField(models.Field):
         return value
 
     def to_python(self, value):
-        return _cast_to_unicode(value)
+        return _unserialize(value)
 
     def value_to_string(self, obj):
         value = self._get_val_from_obj(obj)
