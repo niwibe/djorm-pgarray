@@ -73,6 +73,24 @@ class ArrayFieldTests(TestCase):
         obj.save()
         obj_int.save()
 
+        self.assertEqual(obj.data, [[u"1",u"2"],[u"3",u"ñ"]])
+        self.assertEqual(obj_int.lista, [1,2,3])
+
+    def test_to_python_serializes_xml_correctly(self):
+        obj = MTextModel.objects.create(data=[[u"1",u"2"],[u"3",u"ñ"]])
+        obj_int = IntModel.objects.create(lista=[1,2,3])
+
+        serialized_obj = serialize('xml', MTextModel.objects.filter(pk=obj.pk))
+        serialized_obj_int = serialize('xml', IntModel.objects.filter(pk=obj_int.pk))
+
+        obj.delete()
+        obj_int.delete()
+        deserialized_obj = list(deserialize('xml', serialized_obj))[0]
+        deserialized_obj_int = list(deserialize('xml', serialized_obj_int))[0]
+        obj = deserialized_obj.object
+        obj_int = deserialized_obj_int.object
+        obj.save()
+        obj_int.save()
 
         self.assertEqual(obj.data, [[u"1",u"2"],[u"3",u"ñ"]])
         self.assertEqual(obj_int.lista, [1,2,3])
