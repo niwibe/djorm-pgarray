@@ -82,6 +82,9 @@ class ArrayFormField(forms.Field):
         super(ArrayFormField, self).__init__(*args, **kwargs)
 
     def clean(self, value):
+        # If Django already parsed value to list
+        if isinstance(value, list):
+            return value
         try:
             return value.split(self.delim)
         except:
