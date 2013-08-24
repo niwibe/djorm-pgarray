@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import sys
+
 from django.db import models
 from django.utils import six
 from django.utils.encoding import force_text
@@ -16,11 +18,28 @@ def _cast_to_unicode(data):
     return data
 
 
+def _cast_to_type(data, type_cast):
+    if isinstance(data, (list, tuple)):
+        return [_cast_to_type(x, type_cast) for x in data]
+    if type_cast == str:
+        return force_text(data)
+    return type_cast(data)
+
+
+TYPES = {
+    'int': int,
+    'text': str,
+    'double precision': float,
+}
+
+
 class ArrayField(models.Field):
     __metaclass__ = models.SubfieldBase
 
     def __init__(self, *args, **kwargs):
         self._array_type = kwargs.pop('dbtype', 'int')
+        if not self._array_type in TYPES:
+            raise TypeError('invalid postgreSQL type: %s' % self._array_type)
         self._dimension = kwargs.pop('dimension', 1)
         kwargs.setdefault('blank', True)
         kwargs.setdefault('null', True)
@@ -38,8 +57,8 @@ class ArrayField(models.Field):
         value = value if prepared else self.get_prep_value(value)
         if not value or isinstance(value, six.string_types):
             return value
-
-        return value
+        type_cast = TYPES[self._array_type]
+        return _cast_to_type(value, type_cast)
 
     def get_prep_value(self, value):
         return value
@@ -69,12 +88,13 @@ except ImportError:
 
 
 class ArrayFormField(forms.Field):
-
     error_messages = {
         'invalid': _('Enter a list of values, joined by commas.  E.g. "a,b,c".'),
     }
 
-    def __init__(self, max_length=None, min_length=None, delim=None, *args, **kwargs):
+    def __init__(
+            self, max_length=None, min_length=None, delim=None,
+            *args, **kwargs):
         if delim is not None:
             self.delim = delim
         else:
@@ -92,10 +112,9 @@ class ArrayFormField(forms.Field):
 
     def prepare_value(self, value):
         if value:
-            return self.delim.join(value)
+            return self.delim.join(str(v) for v in value)
         else:
             return super(ArrayFormField, self).prepare_value(value)
-
 
     def to_python(self, value):
         return value.split(self.delim)

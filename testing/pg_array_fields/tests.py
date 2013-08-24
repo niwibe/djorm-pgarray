@@ -55,6 +55,16 @@ class ArrayFieldTests(TestCase):
         obj = MTextModel.objects.get(pk=obj.pk)
         self.assertEqual(obj.data, [[u"1",u"2"],[u"3",u"ñ"]])
 
+    def test_correct_behavior_with_int_arrays(self):
+        obj = IntModel.objects.create(lista=[1,2,3])
+        obj = IntModel.objects.get(pk=obj.pk)
+        self.assertEqual(obj.lista, [1, 2, 3])
+
+    def test_correct_behavior_with_float_arrays(self):
+        obj = DoubleModel.objects.create(lista=[1.2,2.4,3])
+        obj = DoubleModel.objects.get(pk=obj.pk)
+        self.assertEqual(obj.lista, [1.2, 2.4, 3])
+
     def test_value_to_string_serializes_correctly(self):
         obj = MTextModel.objects.create(data=[[u"1",u"2"],[u"3",u"ñ"]])
         obj_int = IntModel.objects.create(lista=[1,2,3])
