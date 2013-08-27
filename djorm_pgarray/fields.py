@@ -115,6 +115,8 @@ class ArrayFormField(forms.Field):
         super(ArrayFormField, self).__init__(*args, **kwargs)
 
     def clean(self, value):
+        if not value:
+            return []
         # If Django already parsed value to list
         if isinstance(value, list):
             return value

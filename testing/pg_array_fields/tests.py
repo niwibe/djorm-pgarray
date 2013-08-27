@@ -113,6 +113,11 @@ class ArrayFormFieldTests(TestCase):
         form = IntArrayForm({'lista':u'[1,2]'})
         self.assertTrue(form.is_valid())
 
+    def test_empty_value(self):
+        form = IntArrayFrom({'lista':u''})
+        self.assertTrue(form.is_valid())
+        self.assertEqual(form.cleaned_data['lista'], [])
+
     def test_admin_forms(self):
         site = AdminSite()
         model_admin = ModelAdmin(IntModel, site)
