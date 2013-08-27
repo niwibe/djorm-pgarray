@@ -14,8 +14,10 @@ from django.utils.translation import ugettext_lazy as _
 
 TYPES = {
     'int': int,
+    'smallint': int,
     'text': str,
     'double precision': float,
+    'varchar': str,
 }
 
 
@@ -50,8 +52,13 @@ class ArrayField(models.Field):
 
     def __init__(self, *args, **kwargs):
         self._array_type = kwargs.pop('dbtype', 'int')
-        if not self._array_type in TYPES:
+        type_key = self._array_type.split('(')[0]
+
+        try:
+            self._type_cast = TYPES[type_key]
+        except KeyError:
             raise TypeError('invalid postgreSQL type: %s' % self._array_type)
+
         self._dimension = kwargs.pop('dimension', 1)
         kwargs.setdefault('blank', True)
         kwargs.setdefault('null', True)
@@ -69,8 +76,7 @@ class ArrayField(models.Field):
         value = value if prepared else self.get_prep_value(value)
         if not value or isinstance(value, six.string_types):
             return value
-        type_cast = TYPES[self._array_type]
-        return _cast_to_type(value, type_cast)
+        return _cast_to_type(value, self._type_cast)
 
     def get_prep_value(self, value):
         return value

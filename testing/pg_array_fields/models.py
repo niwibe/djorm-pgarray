@@ -6,8 +6,8 @@ from djorm_expressions.models import ExpressionManager
 
 
 class IntModel(models.Model):
-     lista = ArrayField(dbtype='int')
-     objects = ExpressionManager()
+    lista = ArrayField(dbtype='int')
+    objects = ExpressionManager()
 
 
 class TextModel(models.Model):
@@ -22,4 +22,10 @@ class DoubleModel(models.Model):
 
 class MTextModel(models.Model):
     data = ArrayField(dbtype="text", dimension=2)
+    objects = ExpressionManager()
+
+
+class MultiTypeModel(models.Model):
+    smallints = ArrayField(dbtype="smallint")
+    varchars = ArrayField(dbtype="varchar(30)")
     objects = ExpressionManager()

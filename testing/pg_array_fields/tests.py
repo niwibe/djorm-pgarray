@@ -5,8 +5,9 @@ from django.test import TestCase
 from django.core.serializers import serialize, deserialize
 
 from djorm_expressions.base import SqlExpression
-from djorm_pgarray.fields import ArrayFormField
-from .models import IntModel, TextModel, DoubleModel, MTextModel
+from .models import (IntModel, TextModel, DoubleModel, MTextModel,
+                     MultiTypeModel)
+
 from .forms import IntArrayFrom
 
 
@@ -15,6 +16,7 @@ class ArrayFieldTests(TestCase):
         IntModel.objects.all().delete()
         TextModel.objects.all().delete()
         DoubleModel.objects.all().delete()
+        MultiTypeModel.objects.all().delete()
 
     def test_empty_create(self):
         instance = IntModel.objects.create(lista=[])
@@ -104,6 +106,16 @@ class ArrayFieldTests(TestCase):
 
         self.assertEqual(obj.data, [[u"1",u"2"],[u"3",u"ñ"]])
         self.assertEqual(obj_int.lista, [1,2,3])
+
+    def test_other_types_properly_casted(self):
+        obj = MultiTypeModel.objects.create(
+            smallints=[1, 2, 3],
+            varchars=['One', 'Two', 'Three']
+        )
+        obj = MultiTypeModel.objects.get(pk=obj.pk)
+
+        self.assertEqual(obj.smallints, [1, 2, 3])
+        self.assertEqual(obj.varchars, ['One', 'Two', 'Three'])
 
 
 class ArrayFormFieldTests(TestCase):
