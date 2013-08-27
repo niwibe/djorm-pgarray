@@ -101,7 +101,7 @@ except ImportError:
 
 
 class ArrayFormField(forms.Field):
-    error_messages = {
+    default_error_messages = {
         'invalid': _('Enter a list of values, joined by commas.  E.g. "a,b,c".'),
     }
 

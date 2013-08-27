@@ -3,6 +3,6 @@ from django.forms.models import ModelForm
 from .models import IntModel
 
 
-class IntArrayFrom(ModelForm):
+class IntArrayForm(ModelForm):
     class Meta:
         model = IntModel

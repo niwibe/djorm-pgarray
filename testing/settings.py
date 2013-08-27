@@ -27,3 +27,5 @@ SECRET_KEY = 'di!n($kqa3)nd%ikad#kcjpkd^uw*h%*kj=*pm7$vbo6ir7h=l'
 INSTALLED_APPS = (
     'pg_array_fields',
 )
+
+TEST_RUNNER = 'django.test.simple.DjangoTestSuiteRunner'

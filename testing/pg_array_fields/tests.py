@@ -7,7 +7,7 @@ from django.core.serializers import serialize, deserialize
 from djorm_expressions.base import SqlExpression
 from djorm_pgarray.fields import ArrayFormField
 from .models import IntModel, TextModel, DoubleModel, MTextModel
-from .forms import IntArrayFrom
+from .forms import IntArrayForm
 
 
 class ArrayFieldTests(TestCase):
@@ -108,9 +108,9 @@ class ArrayFieldTests(TestCase):
 
 class ArrayFormFieldTests(TestCase):
     def test_regular_forms(self):
-        form = IntArrayFrom()
+        form = IntArrayForm()
         self.assertFalse(form.is_valid())
-        form = IntArrayFrom({'lista':u'[1,2]'})
+        form = IntArrayForm({'lista':u'[1,2]'})
         self.assertTrue(form.is_valid())
 
     def test_admin_forms(self):
@@ -123,3 +123,11 @@ class ArrayFormFieldTests(TestCase):
             form_instance.as_table()
         except TypeError:
             self.fail('HTML Rendering of the form caused a TypeError')
+
+    def test_invalid_error(self):
+        form = IntArrayForm({'lista':1})
+        self.assertFalse(form.is_valid())
+        self.assertEqual(
+            form.errors['lista'],
+            [u'Enter a list of values, joined by commas.  E.g. "a,b,c".']
+            )
