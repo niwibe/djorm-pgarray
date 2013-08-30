@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import sys
 import json
 
 from django import forms
@@ -88,6 +87,11 @@ class ArrayField(models.Field):
         value = self._get_val_from_obj(obj)
         return json.dumps(self.get_prep_value(value),
                           cls=DjangoJSONEncoder)
+
+    def validate(self, value, model_instance):
+        for val in value:
+            super(ArrayField, self).validate(val, model_instance)
+
 
 # South support
 try:

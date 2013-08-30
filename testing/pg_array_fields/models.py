@@ -29,3 +29,7 @@ class MultiTypeModel(models.Model):
     smallints = ArrayField(dbtype="smallint")
     varchars = ArrayField(dbtype="varchar(30)")
     objects = ExpressionManager()
+
+
+class ChoicesModel(models.Model):
+    choices = ArrayField(dbtype='text', choices=[('A', 'A'), ('B', 'B')])

@@ -5,9 +5,9 @@ from django.test import TestCase
 from django.core.serializers import serialize, deserialize
 
 from djorm_expressions.base import SqlExpression
-from djorm_pgarray.fields import ArrayFormField
 
-from .models import IntModel, TextModel, DoubleModel, MTextModel, MultiTypeModel
+from .models import (
+    IntModel, TextModel, DoubleModel, MTextModel, MultiTypeModel, ChoicesModel)
 from .forms import IntArrayForm
 
 
@@ -116,6 +116,11 @@ class ArrayFieldTests(TestCase):
 
         self.assertEqual(obj.smallints, [1, 2, 3])
         self.assertEqual(obj.varchars, ['One', 'Two', 'Three'])
+
+    def test_choices_validation(self):
+        obj = ChoicesModel(choices=['A'])
+        obj.full_clean()
+        obj.save()
 
 
 class ArrayFormFieldTests(TestCase):
