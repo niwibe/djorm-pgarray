@@ -5,7 +5,7 @@ from django.test import TestCase
 from django.core.serializers import serialize, deserialize
 
 from djorm_expressions.base import SqlExpression
-from djorm_pgarray.fields import ArrayFormField
+from djorm_pgarray.fields import ArrayField
 
 from .models import IntModel, TextModel, DoubleModel, MTextModel, MultiTypeModel
 from .forms import IntArrayForm
@@ -106,6 +106,14 @@ class ArrayFieldTests(TestCase):
 
         self.assertEqual(obj.data, [[u"1",u"2"],[u"3",u"ñ"]])
         self.assertEqual(obj_int.lista, [1,2,3])
+
+    def test_can_override_formfield(self):
+        model_field = ArrayField()
+        class FakeFieldClass(object):
+            def __init__(self, *args, **kwargs):
+                pass
+        form_field = model_field.formfield(form_class=FakeFieldClass)
+        self.assertIsInstance(form_field, FakeFieldClass)
 
     def test_other_types_properly_casted(self):
         obj = MultiTypeModel.objects.create(
