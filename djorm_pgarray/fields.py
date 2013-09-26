@@ -14,6 +14,7 @@ from django.utils.translation import ugettext_lazy as _
 TYPES = {
     'int': int,
     'smallint': int,
+    'bigint': int,
     'text': str,
     'double precision': float,
     'varchar': str,
