@@ -373,7 +373,6 @@ if django.VERSION[:2] >= (1, 7):
         lookup_name = "any_icontains"
         comparator = "ILIKE"
 
-
     ArrayField.register_lookup(ContainedByLookup)
     ArrayField.register_lookup(ContainsLookup)
     ArrayField.register_lookup(OverlapLookup)

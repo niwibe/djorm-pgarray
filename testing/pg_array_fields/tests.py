@@ -236,39 +236,6 @@ class ArrayFieldTests(TestCase):
         obj.full_clean()
         obj.save()
 
-    def test_lookup_text_stubs_in_one_dimension(self):
-        """
-        Tests whether we're able to lookup text stubs in a simple array field
-        """
-        # Setting up some objects, useful for stub-querying
-        tm1 = TextModel.objects.create(field=['a.v1', 'a.v2', 'b.v1'])
-        tm2 = TextModel.objects.create(field=['c.v1', 'c.v2', 'b.v2'])
-        tm3 = TextModel.objects.create(field=['d.1'])
-
-        i1 = Item2.objects.create(tags=['SOME', 'CONTENT'])
-        i2 = Item2.objects.create(tags=['some', 'content'])
-
-        # Query...
-        self.assertEqual(tm1, TextModel.objects.get(field__any_startswith='a'))
-        self.assertEqual(tm2, TextModel.objects.get(field__any_istartswith='C'))
-        self.assertEqual(2, TextModel.objects.filter(field__any_icontains='V').count())
-        self.assertEqual(2, TextModel.objects.filter(field__any_endswith='2').count())
-
-        self.assertEqual(i2, Item2.objects.get(tags__any_contains='ont'))
-        self.assertEqual(2, Item2.objects.filter(tags__any_icontains='ont').count())
-
-    def test_lookup_text_stubs_in_multiple_dimensions(self):
-        """
-        Tests whether we're able to lookup text stubs in more than one dimension
-        """
-        # Settings up an object or two...
-        mtm1 = MTextModel.objects.create(data=[['this', 'is'], ['some', 'content']])
-        mtm2 = MTextModel.objects.create(data=[['THIS', 'IS'], ['SOME', 'MORE']])
-
-        # Query...
-        self.assertEqual(mtm1, MTextModel.objects.get(data__any_contains='is'))
-        self.assertEqual(2, MTextModel.objects.filter(data__any_icontains='is').count())
-
 
 if django.VERSION[:2] >= (1, 7):
     class AdditionalArrayFieldTests(TestCase):
@@ -423,6 +390,39 @@ if django.VERSION[:2] >= (1, 7):
             naf = ArrayField(*args, **kwargs)
 
             self.assertEqual(kwargs, {'dbtype': 'foo'})
+
+        def test_lookup_text_stubs_in_one_dimension(self):
+            """
+            Tests whether we're able to lookup text stubs in a simple array field
+            """
+            # Setting up some objects, useful for stub-querying
+            tm1 = TextModel.objects.create(field=['a.v1', 'a.v2', 'b.v1'])
+            tm2 = TextModel.objects.create(field=['c.v1', 'c.v2', 'b.v2'])
+            tm3 = TextModel.objects.create(field=['d.1'])
+
+            i1 = Item2.objects.create(tags=['SOME', 'CONTENT'])
+            i2 = Item2.objects.create(tags=['some', 'content'])
+
+            # Query...
+            self.assertEqual(tm1, TextModel.objects.get(field__any_startswith='a'))
+            self.assertEqual(tm2, TextModel.objects.get(field__any_istartswith='C'))
+            self.assertEqual(2, TextModel.objects.filter(field__any_icontains='V').count())
+            self.assertEqual(2, TextModel.objects.filter(field__any_endswith='2').count())
+
+            self.assertEqual(i2, Item2.objects.get(tags__any_contains='ont'))
+            self.assertEqual(2, Item2.objects.filter(tags__any_icontains='ont').count())
+
+        def test_lookup_text_stubs_in_multiple_dimensions(self):
+            """
+            Tests whether we're able to lookup text stubs in more than one dimension
+            """
+            # Settings up an object or two...
+            mtm1 = MTextModel.objects.create(data=[['this', 'is'], ['some', 'content']])
+            mtm2 = MTextModel.objects.create(data=[['THIS', 'IS'], ['SOME', 'MORE']])
+
+            # Query...
+            self.assertEqual(mtm1, MTextModel.objects.get(data__any_contains='is'))
+            self.assertEqual(2, MTextModel.objects.filter(data__any_icontains='is').count())
 
 
 class ArrayFormFieldTests(TestCase):
