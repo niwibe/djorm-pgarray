@@ -256,7 +256,8 @@ if django.VERSION[:2] >= (1, 7):
             lhs, lhs_params = self.process_lhs(qn, connection)
             rhs, rhs_params = self.process_rhs(qn, connection)
             params = lhs_params + rhs_params
-            return "%s @> %s" % (lhs, rhs), params
+            var = "%s @> %s" % (lhs, rhs), params
+            return var
 
     class ContainedByLookup(Lookup):
         lookup_name = "contained_by"
@@ -287,10 +288,103 @@ if django.VERSION[:2] >= (1, 7):
             lhs, params = qn.compile(self.lhs)
             return "array_length(%s, 1)" % lhs, params
 
+    class AnyBaseLookup(Lookup):
+        comparator = "="
+        """self.comparator holds the comparison operator to be applied to the condition"""
+
+        def as_sql(self, qn, connection):
+            """
+            Basically, the array gets split up into rows (unnested) such that we can apply string comparators on the
+            array's contents. Once these operations have been applied, the resulting set of PKs is used to identify,
+            for what rows the given condition is true.
+            :param qn: The SQLCompiler object used for compiling this query
+            :param connection: A DatabaseWrapper object
+            :return: a tuple (condition_string, parameter)
+            """
+            lhs, lhs_params = self.process_lhs(qn, connection)
+            rhs, rhs_params = self.process_rhs(qn, connection)
+            params = lhs_params + rhs_params
+            table = self.lhs.alias
+            pk_name = qn.query.model._meta.pk.name
+            table_dot_pk_name = "%s.%s" % (table, pk_name)
+            return "{table_dot_pk_name} IN (" \
+                   "SELECT DISTINCT tmp_table.{pk_name} " \
+                   "FROM {table} AS tmp_table " \
+                   "JOIN ( " \
+                   "SELECT tmp_table2.{pk_name} AS id, unnest({arrayfield_name}::text[]) AS unnest " \
+                   "FROM {table} AS tmp_table2) AS embedded_table ON embedded_table.{pk_name}=tmp_table.{pk_name} " \
+                   "WHERE embedded_table.unnest {comparator} %s)".format(table_dot_pk_name=table_dot_pk_name,
+                                                                         pk_name=pk_name, table=table,
+                                                                         arrayfield_name=lhs,
+                                                                         comparator=self.comparator) % (
+                       rhs, ), params
+
+
+    class AnyStartswithLookup(AnyBaseLookup):
+        lookup_name = "any_startswith"
+        comparator = "LIKE"
+
+        def process_rhs(self, qn, connection):
+            wildcarded_rhs_params = []
+            rhs, rhs_params = super(AnyStartswithLookup, self).process_rhs(qn, connection)
+            for param in rhs_params:
+                param = "%s%%" % param
+                wildcarded_rhs_params.append(param)
+            return rhs, wildcarded_rhs_params
+
+
+    class AnyIStartswithLookup(AnyStartswithLookup):
+        lookup_name = "any_istartswith"
+        comparator = "ILIKE"
+
+
+    class AnyEndswithLookup(AnyBaseLookup):
+        lookup_name = "any_endswith"
+        comparator = "LIKE"
+
+        def process_rhs(self, qn, connection):
+            wildcarded_rhs_params = []
+            rhs, rhs_params = super(AnyEndswithLookup, self).process_rhs(qn, connection)
+            for param in rhs_params:
+                param = "%%%s" % param
+                wildcarded_rhs_params.append(param)
+            return rhs, wildcarded_rhs_params
+
+
+    class AnyIEndswithLookup(AnyEndswithLookup):
+        lookup_name = "any_iendswith"
+        comparator = "ILIKE"
+
+
+    class AnyContainsLookup(AnyBaseLookup):
+        lookup_name = "any_contains"
+        comparator = "LIKE"
+
+        def process_rhs(self, qn, connection):
+            wildcarded_rhs_params = []
+            rhs, rhs_params = super(AnyContainsLookup, self).process_rhs(qn, connection)
+            for param in rhs_params:
+                param = "%%%s%%" % param
+                wildcarded_rhs_params.append(param)
+            return rhs, wildcarded_rhs_params
+
+
+    class AnyIContainsLookup(AnyContainsLookup):
+        lookup_name = "any_icontains"
+        comparator = "ILIKE"
+
+
     ArrayField.register_lookup(ContainedByLookup)
     ArrayField.register_lookup(ContainsLookup)
     ArrayField.register_lookup(OverlapLookup)
     ArrayField.register_lookup(ArrayLenTransform)
+    ArrayField.register_lookup(AnyStartswithLookup)
+    ArrayField.register_lookup(AnyIStartswithLookup)
+    ArrayField.register_lookup(AnyEndswithLookup)
+    ArrayField.register_lookup(AnyIEndswithLookup)
+    ArrayField.register_lookup(AnyContainsLookup)
+    ArrayField.register_lookup(AnyIContainsLookup)
+
 
     class IndexTransform(Transform):
         def __init__(self, index, field, *args, **kwargs):
@@ -302,15 +396,15 @@ if django.VERSION[:2] >= (1, 7):
             lhs, params = qn.compile(self.lhs)
             return "%s[%s]" % (lhs, self.index), params
 
-        # TODO: Temporary not supported nested index lookup
-        # @property
-        # def output_type(self):
-        #     output_type = self.field.__class__(dimension=self.field._dimension-1)
-        #     output_type._array_type = self.field._array_type
-        #     output_type._explicit_type_cast = self.field._explicit_type_cast
-        #     output_type._type_cast = self.field._type_cast
-        #     output_type.set_attributes_from_name(self.field.name)
-        #     return output_type
+            # TODO: Temporary not supported nested index lookup
+            # @property
+            # def output_type(self):
+            # output_type = self.field.__class__(dimension=self.field._dimension-1)
+            # output_type._array_type = self.field._array_type
+            # output_type._explicit_type_cast = self.field._explicit_type_cast
+            # output_type._type_cast = self.field._type_cast
+            # output_type.set_attributes_from_name(self.field.name)
+            # return output_type
 
     class SliceTransform(Transform):
         def __init__(self, start, end, *args, **kwargs):
@@ -342,86 +436,87 @@ if django.VERSION[:2] >= (1, 7):
 # South support
 try:
     from south.modelsinspector import add_introspection_rules
+
     add_introspection_rules([
-        (
-            [ArrayField],  # class
-            [],           # positional params
-            {
-                "dbtype": ["_array_type", {"default": "int"}],
-                "dimension": ["_dimension", {"default": 1}],
-                "null": ["null", {"default": True}],
-            }
-        )
-    ], ["^djorm_pgarray\.fields\.ArrayField"])
+                                (
+                                    [ArrayField],  # class
+                                    [],  # positional params
+                                    {
+                                        "dbtype": ["_array_type", {"default": "int"}],
+                                        "dimension": ["_dimension", {"default": 1}],
+                                        "null": ["null", {"default": True}],
+                                    }
+                                )
+                            ], ["^djorm_pgarray\.fields\.ArrayField"])
     add_introspection_rules([
-        (
-            [TextArrayField],  # class
-            [],           # positional params
-            {
-                "dimension": ["_dimension", {"default": 1}],
-                "null": ["null", {"default": True}],
-            }
-        )
-    ], ["^djorm_pgarray\.fields\.TextArrayField"])
+                                (
+                                    [TextArrayField],  # class
+                                    [],  # positional params
+                                    {
+                                        "dimension": ["_dimension", {"default": 1}],
+                                        "null": ["null", {"default": True}],
+                                    }
+                                )
+                            ], ["^djorm_pgarray\.fields\.TextArrayField"])
     add_introspection_rules([
-        (
-            [FloatArrayField],  # class
-            [],           # positional params
-            {
-                "dimension": ["_dimension", {"default": 1}],
-                "null": ["null", {"default": True}],
-            }
-        )
-    ], ["^djorm_pgarray\.fields\.FloatArrayField"])
+                                (
+                                    [FloatArrayField],  # class
+                                    [],  # positional params
+                                    {
+                                        "dimension": ["_dimension", {"default": 1}],
+                                        "null": ["null", {"default": True}],
+                                    }
+                                )
+                            ], ["^djorm_pgarray\.fields\.FloatArrayField"])
     add_introspection_rules([
-        (
-            [IntegerArrayField],  # class
-            [],           # positional params
-            {
-                "dimension": ["_dimension", {"default": 1}],
-                "null": ["null", {"default": True}],
-            }
-        )
-    ], ["^djorm_pgarray\.fields\.IntegerArrayField"])
+                                (
+                                    [IntegerArrayField],  # class
+                                    [],  # positional params
+                                    {
+                                        "dimension": ["_dimension", {"default": 1}],
+                                        "null": ["null", {"default": True}],
+                                    }
+                                )
+                            ], ["^djorm_pgarray\.fields\.IntegerArrayField"])
     add_introspection_rules([
-        (
-            [BigIntegerArrayField],  # class
-            [],           # positional params
-            {
-                "dimension": ["_dimension", {"default": 1}],
-                "null": ["null", {"default": True}],
-            }
-        )
-    ], ["^djorm_pgarray\.fields\.BigIntegerArrayField"])
+                                (
+                                    [BigIntegerArrayField],  # class
+                                    [],  # positional params
+                                    {
+                                        "dimension": ["_dimension", {"default": 1}],
+                                        "null": ["null", {"default": True}],
+                                    }
+                                )
+                            ], ["^djorm_pgarray\.fields\.BigIntegerArrayField"])
     add_introspection_rules([
-        (
-            [SmallIntegerArrayField],  # class
-            [],           # positional params
-            {
-                "dimension": ["_dimension", {"default": 1}],
-                "null": ["null", {"default": True}],
-            }
-        )
-    ], ["^djorm_pgarray\.fields\.SmallIntegerArrayField"])
+                                (
+                                    [SmallIntegerArrayField],  # class
+                                    [],  # positional params
+                                    {
+                                        "dimension": ["_dimension", {"default": 1}],
+                                        "null": ["null", {"default": True}],
+                                    }
+                                )
+                            ], ["^djorm_pgarray\.fields\.SmallIntegerArrayField"])
     add_introspection_rules([
-        (
-            [DateTimeArrayField],  # class
-            [],           # positional params
-            {
-                "dimension": ["_dimension", {"default": 1}],
-                "null": ["null", {"default": True}],
-            }
-        )
-    ], ["^djorm_pgarray\.fields\.DateTimeArrayField"])
+                                (
+                                    [DateTimeArrayField],  # class
+                                    [],  # positional params
+                                    {
+                                        "dimension": ["_dimension", {"default": 1}],
+                                        "null": ["null", {"default": True}],
+                                    }
+                                )
+                            ], ["^djorm_pgarray\.fields\.DateTimeArrayField"])
     add_introspection_rules([
-        (
-            [DateArrayField],  # class
-            [],           # positional params
-            {
-                "dimension": ["_dimension", {"default": 1}],
-                "null": ["null", {"default": True}],
-            }
-        )
-    ], ["^djorm_pgarray\.fields\.DateArrayField"])
+                                (
+                                    [DateArrayField],  # class
+                                    [],  # positional params
+                                    {
+                                        "dimension": ["_dimension", {"default": 1}],
+                                        "null": ["null", {"default": True}],
+                                    }
+                                )
+                            ], ["^djorm_pgarray\.fields\.DateArrayField"])
 except ImportError:
     pass

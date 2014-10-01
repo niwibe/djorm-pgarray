@@ -3,7 +3,6 @@
 
 import unittest
 import datetime
-
 from django.contrib.admin import AdminSite
 from django.contrib.admin import ModelAdmin
 from django.core.serializers import serialize
@@ -13,13 +12,10 @@ from django.test import TestCase
 from django.utils.encoding import force_text
 from django.utils import six
 from django import forms
-
 import django
-import psycopg2.extensions
 
 from djorm_pgarray.fields import ArrayField
 from djorm_pgarray.fields import ArrayFormField
-
 from .forms import IntArrayForm
 from .models import IntModel
 from .models import TextModel
@@ -54,12 +50,14 @@ def get_type_oid(sql_expression):
     finally:
         cursor.close()
 
+
 def cast_macaddr(val, cur):
     return MacAddr(val)
 
 
 def adapt_macaddr(maddr):
     from psycopg2.extensions import adapt, AsIs
+
     return AsIs("{0}::macaddr".format(adapt(str(maddr))))
 
 
@@ -126,28 +124,28 @@ class ArrayFieldTests(TestCase):
         self.assertEqual(instance.field, ['00:24:d6:54:ff:c6', '00:24:d6:54:ff:c4'])
 
     def test_correct_behavior_with_text_arrays_01(self):
-        obj = TextModel.objects.create(field=[[1,2],[3,4]])
+        obj = TextModel.objects.create(field=[[1, 2], [3, 4]])
         obj = TextModel.objects.get(pk=obj.pk)
         self.assertEqual(obj.field, [[u'1', u'2'], [u'3', u'4']])
 
     def test_correct_behavior_with_text_arrays_02(self):
-        obj = MTextModel.objects.create(data=[[u"1",u"2"],[u"3",u"ñ"]])
+        obj = MTextModel.objects.create(data=[[u"1", u"2"], [u"3", u"ñ"]])
         obj = MTextModel.objects.get(pk=obj.pk)
-        self.assertEqual(obj.data, [[u"1",u"2"],[u"3",u"ñ"]])
+        self.assertEqual(obj.data, [[u"1", u"2"], [u"3", u"ñ"]])
 
     def test_correct_behavior_with_int_arrays(self):
-        obj = IntModel.objects.create(field=[1,2,3])
+        obj = IntModel.objects.create(field=[1, 2, 3])
         obj = IntModel.objects.get(pk=obj.pk)
         self.assertEqual(obj.field, [1, 2, 3])
 
     def test_correct_behavior_with_float_arrays(self):
-        obj = DoubleModel.objects.create(field=[1.2,2.4,3])
+        obj = DoubleModel.objects.create(field=[1.2, 2.4, 3])
         obj = DoubleModel.objects.get(pk=obj.pk)
         self.assertEqual(obj.field, [1.2, 2.4, 3])
 
     def test_value_to_string_serializes_correctly(self):
-        obj = MTextModel.objects.create(data=[[u"1",u"2"],[u"3",u"ñ"]])
-        obj_int = IntModel.objects.create(field=[1,2,3])
+        obj = MTextModel.objects.create(data=[[u"1", u"2"], [u"3", u"ñ"]])
+        obj_int = IntModel.objects.create(field=[1, 2, 3])
 
         serialized_obj = serialize('json', MTextModel.objects.filter(pk=obj.pk))
         serialized_obj_int = serialize('json', IntModel.objects.filter(pk=obj_int.pk))
@@ -163,12 +161,12 @@ class ArrayFieldTests(TestCase):
         obj.save()
         obj_int.save()
 
-        self.assertEqual(obj.data, [[u"1",u"2"],[u"3",u"ñ"]])
-        self.assertEqual(obj_int.field, [1,2,3])
+        self.assertEqual(obj.data, [[u"1", u"2"], [u"3", u"ñ"]])
+        self.assertEqual(obj_int.field, [1, 2, 3])
 
     def test_to_python_serializes_xml_correctly(self):
-        obj = MTextModel.objects.create(data=[[u"1",u"2"],[u"3",u"ñ"]])
-        obj_int = IntModel.objects.create(field=[1,2,3])
+        obj = MTextModel.objects.create(data=[[u"1", u"2"], [u"3", u"ñ"]])
+        obj_int = IntModel.objects.create(field=[1, 2, 3])
 
         serialized_obj = serialize('xml', MTextModel.objects.filter(pk=obj.pk))
         serialized_obj_int = serialize('xml', IntModel.objects.filter(pk=obj_int.pk))
@@ -182,14 +180,16 @@ class ArrayFieldTests(TestCase):
         obj.save()
         obj_int.save()
 
-        self.assertEqual(obj.data, [[u"1",u"2"],[u"3",u"ñ"]])
-        self.assertEqual(obj_int.field, [1,2,3])
+        self.assertEqual(obj.data, [[u"1", u"2"], [u"3", u"ñ"]])
+        self.assertEqual(obj_int.field, [1, 2, 3])
 
     def test_can_override_formfield(self):
         model_field = ArrayField()
+
         class FakeFieldClass(object):
             def __init__(self, *args, **kwargs):
                 pass
+
         form_field = model_field.formfield(form_class=FakeFieldClass)
         self.assertIsInstance(form_field, FakeFieldClass)
 
@@ -216,8 +216,6 @@ class ArrayFieldTests(TestCase):
                 memoryview(b'\x02\x00\x00\x00\x00\x00'),
                 memoryview(b'\x03\x00\x00\x00\x00\x00')]
 
-
-
         obj = BytesArrayModel()
         obj.entries = data
         obj.save()
@@ -237,6 +235,39 @@ class ArrayFieldTests(TestCase):
         obj = ChoicesModel(choices=['A'])
         obj.full_clean()
         obj.save()
+
+    def test_lookup_text_stubs_in_one_dimension(self):
+        """
+        Tests whether we're able to lookup text stubs in a simple array field
+        """
+        # Setting up some objects, useful for stub-querying
+        tm1 = TextModel.objects.create(field=['a.v1', 'a.v2', 'b.v1'])
+        tm2 = TextModel.objects.create(field=['c.v1', 'c.v2', 'b.v2'])
+        tm3 = TextModel.objects.create(field=['d.1'])
+
+        i1 = Item2.objects.create(tags=['SOME', 'CONTENT'])
+        i2 = Item2.objects.create(tags=['some', 'content'])
+
+        # Query...
+        self.assertEqual(tm1, TextModel.objects.get(field__any_startswith='a'))
+        self.assertEqual(tm2, TextModel.objects.get(field__any_istartswith='C'))
+        self.assertEqual(2, TextModel.objects.filter(field__any_icontains='V').count())
+        self.assertEqual(2, TextModel.objects.filter(field__any_endswith='2').count())
+
+        self.assertEqual(i2, Item2.objects.get(tags__any_contains='ont'))
+        self.assertEqual(2, Item2.objects.filter(tags__any_icontains='ont').count())
+
+    def test_lookup_text_stubs_in_multiple_dimensions(self):
+        """
+        Tests whether we're able to lookup text stubs in more than one dimension
+        """
+        # Settings up an object or two...
+        mtm1 = MTextModel.objects.create(data=[['this', 'is'], ['some', 'content']])
+        mtm2 = MTextModel.objects.create(data=[['THIS', 'IS'], ['SOME', 'MORE']])
+
+        # Query...
+        self.assertEqual(mtm1, MTextModel.objects.get(data__any_contains='is'))
+        self.assertEqual(2, MTextModel.objects.filter(data__any_icontains='is').count())
 
 
 if django.VERSION[:2] >= (1, 7):
@@ -268,14 +299,14 @@ if django.VERSION[:2] >= (1, 7):
             obj = IntModel.objects.create(field=[2, 3])
             obj = IntModel.objects.create(field=[3, 4])
 
-            qs = IntModel.objects.filter(field__0__in=[1,2]).order_by("id")
+            qs = IntModel.objects.filter(field__0__in=[1, 2]).order_by("id")
             self.assertEqual(qs.count(), 2)
-            self.assertSequenceEqual(qs[0].field, [1,2])
-            self.assertSequenceEqual(qs[1].field, [2,3])
+            self.assertSequenceEqual(qs[0].field, [1, 2])
+            self.assertSequenceEqual(qs[1].field, [2, 3])
 
             qs = IntModel.objects.filter(field__0=1)
             self.assertEqual(qs.count(), 1)
-            self.assertSequenceEqual(qs[0].field, [1,2])
+            self.assertSequenceEqual(qs[0].field, [1, 2])
 
             # TODO: temporary not supported nested index search :(
             # obj = IntModel.objects.create(field2=[[1, 2], [3, 4]])
@@ -308,24 +339,24 @@ if django.VERSION[:2] >= (1, 7):
             self.assertEqual(qs.count(), 1)
 
         def test_contains_lookup(self):
-            obj1 = IntModel.objects.create(field=[1,4,3])
-            obj2 = IntModel.objects.create(field=[0,10,50])
+            obj1 = IntModel.objects.create(field=[1, 4, 3])
+            obj2 = IntModel.objects.create(field=[0, 10, 50])
 
-            qs = IntModel.objects.filter(field__contains=[1,3])
+            qs = IntModel.objects.filter(field__contains=[1, 3])
             self.assertEqual(qs.count(), 1)
 
         def test_contained_by_lookup(self):
-            obj1 = IntModel.objects.create(field=[2,7])
-            obj2 = IntModel.objects.create(field=[0,10,50])
+            obj1 = IntModel.objects.create(field=[2, 7])
+            obj2 = IntModel.objects.create(field=[0, 10, 50])
 
-            qs = IntModel.objects.filter(field__contained_by=[1,7,4,2,6])
+            qs = IntModel.objects.filter(field__contained_by=[1, 7, 4, 2, 6])
             self.assertEqual(qs.count(), 1)
 
         def test_overlap_lookup(self):
-            obj1 = IntModel.objects.create(field=[1,4,3])
-            obj2 = IntModel.objects.create(field=[0,10,50])
+            obj1 = IntModel.objects.create(field=[1, 4, 3])
+            obj2 = IntModel.objects.create(field=[0, 10, 50])
 
-            qs = IntModel.objects.filter(field__overlap=[2,1])
+            qs = IntModel.objects.filter(field__overlap=[2, 1])
             self.assertEqual(qs.count(), 1)
 
         def test_contains_unicode(self):
@@ -398,11 +429,11 @@ class ArrayFormFieldTests(TestCase):
     def test_regular_forms(self):
         form = IntArrayForm()
         self.assertFalse(form.is_valid())
-        form = IntArrayForm({'field':u'1,2'})
+        form = IntArrayForm({'field': u'1,2'})
         self.assertTrue(form.is_valid())
 
     def test_empty_value(self):
-        form = IntArrayForm({'field':u''})
+        form = IntArrayForm({'field': u''})
         self.assertTrue(form.is_valid())
         self.assertEqual(form.cleaned_data['field'], [])
 
@@ -419,13 +450,13 @@ class ArrayFormFieldTests(TestCase):
 
     def test_unicode_data(self):
         field = ArrayFormField()
-        result = field.prepare_value([u"Клиент",u"こんにちは"])
+        result = field.prepare_value([u"Клиент", u"こんにちは"])
         self.assertEqual(result, u"Клиент,こんにちは")
 
     def test_invalid_error(self):
-        form = IntArrayForm({'field':1})
+        form = IntArrayForm({'field': 1})
         self.assertFalse(form.is_valid())
         self.assertEqual(
             form.errors['field'],
             [u'Enter a list of values, joined by commas.  E.g. "a,b,c".']
-            )
+        )
