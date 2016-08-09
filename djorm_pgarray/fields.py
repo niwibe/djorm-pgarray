@@ -246,7 +246,10 @@ class ArrayFormField(forms.Field):
     def to_python(self, value):
         if value is None or value == u"":
             return []
-        return value.split(self.delim)
+        elif type(value) is list:
+            return value
+        else:
+            return value.split(self.delim)
 
 
 if django.VERSION[:2] >= (1, 7):
