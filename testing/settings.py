@@ -48,4 +48,4 @@ INSTALLED_APPS = [
     "pg_array_fields",
 ]
 
-TEST_RUNNER = "django.test.simple.DjangoTestSuiteRunner"
+TEST_RUNNER = "django.test.runner.DiscoverRunner"
