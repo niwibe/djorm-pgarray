@@ -49,7 +49,7 @@ def _unserialize(value):
         return _cast_to_unicode(value)
 
 
-class ArrayField(six.with_metaclass(models.SubfieldBase, models.Field)):
+class ArrayField(models.Field):
     empty_strings_allowed = False
 
     def __init__(self, dbtype="int", type_cast=None, dimension=1, *args, **kwargs):
@@ -96,6 +96,9 @@ class ArrayField(six.with_metaclass(models.SubfieldBase, models.Field)):
 
     def get_prep_value(self, value):
         return value if isinstance(value, (six.string_types, list,)) or not isinstance(value, Iterable) else list(value)
+
+    def from_db_value(self, value, expression, connection, context):
+        return _unserialize(value)
 
     def to_python(self, value):
         return _unserialize(value)
