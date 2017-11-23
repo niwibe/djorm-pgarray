@@ -2,8 +2,8 @@
 from __future__ import unicode_literals
 
 from django.db import models, migrations
-import djorm_pgarray.fields
-import pg_array_fields.models
+from djorm_pgarray import fields
+from testing import pg_array_fields as test_fields
 
 
 class Migration(migrations.Migration):
@@ -16,7 +16,7 @@ class Migration(migrations.Migration):
             name='BytesArrayModel',
             fields=[
                 ('id', models.AutoField(auto_created=True, serialize=False, primary_key=True, verbose_name='ID')),
-                ('entries', djorm_pgarray.fields.ArrayField(dbtype='bytea')),
+                ('entries', fields.ArrayField(dbtype='bytea')),
             ],
             options={
             },
@@ -26,7 +26,7 @@ class Migration(migrations.Migration):
             name='ChoicesModel',
             fields=[
                 ('id', models.AutoField(auto_created=True, serialize=False, primary_key=True, verbose_name='ID')),
-                ('choices', djorm_pgarray.fields.TextArrayField(dbtype='text', choices=[('A', 'A'), ('B', 'B')])),
+                ('choices', fields.TextArrayField(dbtype='text', choices=[('A', 'A'), ('B', 'B')])),
             ],
             options={
             },
@@ -36,7 +36,7 @@ class Migration(migrations.Migration):
             name='DateModel',
             fields=[
                 ('id', models.AutoField(auto_created=True, serialize=False, primary_key=True, verbose_name='ID')),
-                ('dates', djorm_pgarray.fields.DateArrayField(dbtype='date')),
+                ('dates', fields.DateArrayField(dbtype='date')),
             ],
             options={
             },
@@ -46,7 +46,7 @@ class Migration(migrations.Migration):
             name='DateTimeModel',
             fields=[
                 ('id', models.AutoField(auto_created=True, serialize=False, primary_key=True, verbose_name='ID')),
-                ('dates', djorm_pgarray.fields.DateTimeArrayField(dbtype='timestamp with time zone')),
+                ('dates', fields.DateTimeArrayField(dbtype='timestamp with time zone')),
             ],
             options={
             },
@@ -56,7 +56,7 @@ class Migration(migrations.Migration):
             name='DoubleModel',
             fields=[
                 ('id', models.AutoField(auto_created=True, serialize=False, primary_key=True, verbose_name='ID')),
-                ('field', djorm_pgarray.fields.FloatArrayField(dbtype='double precision')),
+                ('field', fields.FloatArrayField(dbtype='double precision')),
             ],
             options={
             },
@@ -66,8 +66,8 @@ class Migration(migrations.Migration):
             name='IntModel',
             fields=[
                 ('id', models.AutoField(auto_created=True, serialize=False, primary_key=True, verbose_name='ID')),
-                ('field', djorm_pgarray.fields.IntegerArrayField()),
-                ('field2', djorm_pgarray.fields.IntegerArrayField(dimension=2)),
+                ('field', fields.IntegerArrayField()),
+                ('field2', fields.IntegerArrayField(dimension=2)),
             ],
             options={
             },
@@ -77,7 +77,7 @@ class Migration(migrations.Migration):
             name='Item',
             fields=[
                 ('id', models.AutoField(auto_created=True, serialize=False, primary_key=True, verbose_name='ID')),
-                ('tags', djorm_pgarray.fields.TextArrayField(dbtype='text', default=pg_array_fields.models.defaultval)),
+                ('tags', fields.TextArrayField(dbtype='text', default=test_fields.models.defaultval)),
             ],
             options={
             },
@@ -87,7 +87,7 @@ class Migration(migrations.Migration):
             name='Item2',
             fields=[
                 ('id', models.AutoField(auto_created=True, serialize=False, primary_key=True, verbose_name='ID')),
-                ('tags', djorm_pgarray.fields.TextArrayField(dbtype='text', default=[])),
+                ('tags', fields.TextArrayField(dbtype='text', default=[])),
             ],
             options={
             },
@@ -97,7 +97,7 @@ class Migration(migrations.Migration):
             name='MacAddrModel',
             fields=[
                 ('id', models.AutoField(auto_created=True, serialize=False, primary_key=True, verbose_name='ID')),
-                ('field', djorm_pgarray.fields.ArrayField(dbtype='macaddr', type_cast=str)),
+                ('field', fields.ArrayField(dbtype='macaddr', type_cast=str)),
             ],
             options={
             },
@@ -107,7 +107,7 @@ class Migration(migrations.Migration):
             name='MTextModel',
             fields=[
                 ('id', models.AutoField(auto_created=True, serialize=False, primary_key=True, verbose_name='ID')),
-                ('data', djorm_pgarray.fields.TextArrayField(dimension=2, dbtype='text')),
+                ('data', fields.TextArrayField(dimension=2, dbtype='text')),
             ],
             options={
             },
@@ -117,8 +117,8 @@ class Migration(migrations.Migration):
             name='MultiTypeModel',
             fields=[
                 ('id', models.AutoField(auto_created=True, serialize=False, primary_key=True, verbose_name='ID')),
-                ('smallints', djorm_pgarray.fields.SmallIntegerArrayField(dbtype='smallint')),
-                ('varchars', djorm_pgarray.fields.ArrayField(dbtype='varchar(30)')),
+                ('smallints', fields.SmallIntegerArrayField(dbtype='smallint')),
+                ('varchars', fields.ArrayField(dbtype='varchar(30)')),
             ],
             options={
             },
@@ -128,7 +128,7 @@ class Migration(migrations.Migration):
             name='TextModel',
             fields=[
                 ('id', models.AutoField(auto_created=True, serialize=False, primary_key=True, verbose_name='ID')),
-                ('field', djorm_pgarray.fields.TextArrayField(dbtype='text')),
+                ('field', fields.TextArrayField(dbtype='text')),
             ],
             options={
             },

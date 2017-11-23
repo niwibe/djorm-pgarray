@@ -1,0 +1,20 @@
+# Customize the test machine
+machine:
+  # Version of python to use
+  python:
+    version:
+      2.7.12
+  post:
+    - pyenv global 2.7.12 3.6.2
+
+dependencies:
+  cache_directories:
+    - ~/.cache/pip
+  pre:
+    - pip install --upgrade tox
+  override:
+    - echo "Skipping setup.py install"
+
+test:
+  override:
+    - tox

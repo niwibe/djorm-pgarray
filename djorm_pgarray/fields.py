@@ -1,6 +1,10 @@
+# -*- coding: utf-8 -*-
+
 from __future__ import unicode_literals
 
 from collections import Iterable
+from distutils.version import StrictVersion
+
 import json
 import django
 
@@ -49,7 +53,7 @@ def _unserialize(value):
         return _cast_to_unicode(value)
 
 
-class ArrayField(six.with_metaclass(models.SubfieldBase, models.Field)):
+class ArrayField(models.Field):
     empty_strings_allowed = False
 
     def __init__(self, dbtype="int", type_cast=None, dimension=1, *args, **kwargs):
@@ -78,13 +82,11 @@ class ArrayField(six.with_metaclass(models.SubfieldBase, models.Field)):
 
     def formfield(self, **params):
         params.setdefault("form_class", ArrayFormField)
+        params.setdefault("choices_form_class", forms.TypedMultipleChoiceField)
 
-        # Django 1.5 does not support "choices_form_class" parameter
-        if django.VERSION[:2] >= (1, 6):
-            params.setdefault("choices_form_class", forms.TypedMultipleChoiceField)
-            if self.choices:
-                params.setdefault("choices", self.get_choices(include_blank=False))
-                params.setdefault("coerce", self._type_cast)
+        if self.choices:
+            params.setdefault("choices", self.get_choices(include_blank=False))
+            params.setdefault("coerce", self._type_cast)
 
         return super(ArrayField, self).formfield(**params)
 
@@ -249,146 +251,147 @@ class ArrayFormField(forms.Field):
         return value.split(self.delim)
 
 
-if django.VERSION[:2] >= (1, 7):
-    from django.db.models import Lookup, Transform
+class ContainsLookup(models.Lookup):
+    lookup_name = "contains"
 
-    class ContainsLookup(Lookup):
-        lookup_name = "contains"
-
-        def as_sql(self, qn, connection):
-            lhs, lhs_params = self.process_lhs(qn, connection)
-            rhs, rhs_params = self.process_rhs(qn, connection)
-            params = lhs_params + rhs_params
-            var = "%s @> %s" % (lhs, rhs), params
-            return var
-
-    class ContainedByLookup(Lookup):
-        lookup_name = "contained_by"
-
-        def as_sql(self, qn, connection):
-            lhs, lhs_params = self.process_lhs(qn, connection)
-            rhs, rhs_params = self.process_rhs(qn, connection)
-            params = lhs_params + rhs_params
-            return "%s <@ %s" % (lhs, rhs), params
-
-    class OverlapLookup(Lookup):
-        lookup_name = "overlap"
-
-        def as_sql(self, qn, connection):
-            lhs, lhs_params = self.process_lhs(qn, connection)
-            rhs, rhs_params = self.process_rhs(qn, connection)
-            params = lhs_params + rhs_params
-            return "%s && %s" % (lhs, rhs), params
-
-    class ArrayLenTransform(Transform):
-        lookup_name = "len"
-
-        @property
-        def output_type(self):
-            return models.IntegerField()
-
-        def as_sql(self, qn, connection):
-            lhs, params = qn.compile(self.lhs)
-            return "array_length(%s, 1)" % lhs, params
-
-    class AnyBaseLookup(Lookup):
-        comparator = "="
-        """self.comparator holds the comparison operator to be applied to the condition"""
-
-        def as_sql(self, qn, connection):
-            """
-            Basically, the array gets split up into rows (unnested) such that we can apply string comparators on the
-            array's contents. Once these operations have been applied, the resulting set of PKs is used to identify,
-            for what rows the given condition is true.
-            :param qn: The SQLCompiler object used for compiling this query
-            :param connection: A DatabaseWrapper object
-            :return: a tuple (condition_string, parameter)
-            """
-            lhs, lhs_params = self.process_lhs(qn, connection)
-            rhs, rhs_params = self.process_rhs(qn, connection)
-            params = lhs_params + rhs_params
-            table = self.lhs.alias
-            pk_name = qn.query.model._meta.pk.name
-            table_dot_pk_name = "%s.%s" % (table, pk_name)
-            return "{table_dot_pk_name} IN (" \
-                   "SELECT DISTINCT tmp_table.{pk_name} " \
-                   "FROM {table} AS tmp_table " \
-                   "JOIN ( " \
-                   "SELECT tmp_table2.{pk_name} AS id, unnest({arrayfield_name}::text[]) AS unnest " \
-                   "FROM {table} AS tmp_table2) AS embedded_table ON embedded_table.{pk_name}=tmp_table.{pk_name} " \
-                   "WHERE embedded_table.unnest {comparator} %s)".format(table_dot_pk_name=table_dot_pk_name,
-                                                                         pk_name=pk_name, table=table,
-                                                                         arrayfield_name=lhs,
-                                                                         comparator=self.comparator) % (
-                       rhs, ), params
+    def as_sql(self, qn, connection):
+        lhs, lhs_params = self.process_lhs(qn, connection)
+        rhs, rhs_params = self.process_rhs(qn, connection)
+        params = lhs_params + rhs_params
+        var = "%s @> %s" % (lhs, rhs), params
+        return var
 
 
-    class AnyStartswithLookup(AnyBaseLookup):
-        lookup_name = "any_startswith"
-        comparator = "LIKE"
+class ContainedByLookup(models.Lookup):
+    lookup_name = "contained_by"
 
-        def process_rhs(self, qn, connection):
-            wildcarded_rhs_params = []
-            rhs, rhs_params = super(AnyStartswithLookup, self).process_rhs(qn, connection)
-            for param in rhs_params:
-                param = "%s%%" % param
-                wildcarded_rhs_params.append(param)
-            return rhs, wildcarded_rhs_params
+    def as_sql(self, qn, connection):
+        lhs, lhs_params = self.process_lhs(qn, connection)
+        rhs, rhs_params = self.process_rhs(qn, connection)
+        params = lhs_params + rhs_params
+        return "%s <@ %s" % (lhs, rhs), params
 
 
-    class AnyIStartswithLookup(AnyStartswithLookup):
-        lookup_name = "any_istartswith"
-        comparator = "ILIKE"
+class OverlapLookup(models.Lookup):
+    lookup_name = "overlap"
+
+    def as_sql(self, qn, connection):
+        lhs, lhs_params = self.process_lhs(qn, connection)
+        rhs, rhs_params = self.process_rhs(qn, connection)
+        params = lhs_params + rhs_params
+        return "%s && %s" % (lhs, rhs), params
 
 
-    class AnyEndswithLookup(AnyBaseLookup):
-        lookup_name = "any_endswith"
-        comparator = "LIKE"
+class ArrayLenTransform(models.Transform):
+    lookup_name = "len"
 
-        def process_rhs(self, qn, connection):
-            wildcarded_rhs_params = []
-            rhs, rhs_params = super(AnyEndswithLookup, self).process_rhs(qn, connection)
-            for param in rhs_params:
-                param = "%%%s" % param
-                wildcarded_rhs_params.append(param)
-            return rhs, wildcarded_rhs_params
+    @property
+    def output_type(self):
+        return models.IntegerField()
 
-
-    class AnyIEndswithLookup(AnyEndswithLookup):
-        lookup_name = "any_iendswith"
-        comparator = "ILIKE"
+    def as_sql(self, qn, connection):
+        lhs, params = qn.compile(self.lhs)
+        return "array_length(%s, 1)" % lhs, params
 
 
-    class AnyContainsLookup(AnyBaseLookup):
-        lookup_name = "any_contains"
-        comparator = "LIKE"
+class AnyBaseLookup(models.Lookup):
+    comparator = "="
+    """self.comparator holds the comparison operator to be applied to the condition"""
 
-        def process_rhs(self, qn, connection):
-            wildcarded_rhs_params = []
-            rhs, rhs_params = super(AnyContainsLookup, self).process_rhs(qn, connection)
-            for param in rhs_params:
-                param = "%%%s%%" % param
-                wildcarded_rhs_params.append(param)
-            return rhs, wildcarded_rhs_params
+    def as_sql(self, qn, connection):
+        """
+        Basically, the array gets split up into rows (unnested) such that we can apply string comparators on the
+        array's contents. Once these operations have been applied, the resulting set of PKs is used to identify,
+        for what rows the given condition is true.
+        :param qn: The SQLCompiler object used for compiling this query
+        :param connection: A DatabaseWrapper object
+        :return: a tuple (condition_string, parameter)
+        """
+        lhs, lhs_params = self.process_lhs(qn, connection)
+        rhs, rhs_params = self.process_rhs(qn, connection)
+        params = lhs_params + rhs_params
+        table = self.lhs.alias
+        pk_name = qn.query.model._meta.pk.name
+        table_dot_pk_name = "%s.%s" % (table, pk_name)
+        return "{table_dot_pk_name} IN (" \
+               "SELECT DISTINCT tmp_table.{pk_name} " \
+               "FROM {table} AS tmp_table " \
+               "JOIN ( " \
+               "SELECT tmp_table2.{pk_name} AS id, unnest({arrayfield_name}::text[]) AS unnest " \
+               "FROM {table} AS tmp_table2) AS embedded_table ON embedded_table.{pk_name}=tmp_table.{pk_name} " \
+               "WHERE embedded_table.unnest {comparator} %s)".format(table_dot_pk_name=table_dot_pk_name,
+                                                                     pk_name=pk_name, table=table,
+                                                                     arrayfield_name=lhs,
+                                                                     comparator=self.comparator) % (
+                   rhs, ), params
 
 
-    class AnyIContainsLookup(AnyContainsLookup):
-        lookup_name = "any_icontains"
-        comparator = "ILIKE"
+class AnyStartswithLookup(AnyBaseLookup):
+    lookup_name = "any_startswith"
+    comparator = "LIKE"
 
-    ArrayField.register_lookup(ContainedByLookup)
-    ArrayField.register_lookup(ContainsLookup)
-    ArrayField.register_lookup(OverlapLookup)
-    ArrayField.register_lookup(ArrayLenTransform)
-    ArrayField.register_lookup(AnyStartswithLookup)
-    ArrayField.register_lookup(AnyIStartswithLookup)
-    ArrayField.register_lookup(AnyEndswithLookup)
-    ArrayField.register_lookup(AnyIEndswithLookup)
-    ArrayField.register_lookup(AnyContainsLookup)
-    ArrayField.register_lookup(AnyIContainsLookup)
+    def process_rhs(self, qn, connection):
+        wildcarded_rhs_params = []
+        rhs, rhs_params = super(AnyStartswithLookup, self).process_rhs(qn, connection)
+        for param in rhs_params:
+            param = "%s%%" % param
+            wildcarded_rhs_params.append(param)
+        return rhs, wildcarded_rhs_params
 
 
-    class IndexTransform(Transform):
+class AnyIStartswithLookup(AnyStartswithLookup):
+    lookup_name = "any_istartswith"
+    comparator = "ILIKE"
+
+
+class AnyEndswithLookup(AnyBaseLookup):
+    lookup_name = "any_endswith"
+    comparator = "LIKE"
+
+    def process_rhs(self, qn, connection):
+        wildcarded_rhs_params = []
+        rhs, rhs_params = super(AnyEndswithLookup, self).process_rhs(qn, connection)
+        for param in rhs_params:
+            param = "%%%s" % param
+            wildcarded_rhs_params.append(param)
+        return rhs, wildcarded_rhs_params
+
+
+class AnyIEndswithLookup(AnyEndswithLookup):
+    lookup_name = "any_iendswith"
+    comparator = "ILIKE"
+
+
+class AnyContainsLookup(AnyBaseLookup):
+    lookup_name = "any_contains"
+    comparator = "LIKE"
+
+    def process_rhs(self, qn, connection):
+        wildcarded_rhs_params = []
+        rhs, rhs_params = super(AnyContainsLookup, self).process_rhs(qn, connection)
+        for param in rhs_params:
+            param = "%%%s%%" % param
+            wildcarded_rhs_params.append(param)
+        return rhs, wildcarded_rhs_params
+
+
+class AnyIContainsLookup(AnyContainsLookup):
+    lookup_name = "any_icontains"
+    comparator = "ILIKE"
+
+ArrayField.register_lookup(ContainedByLookup)
+ArrayField.register_lookup(ContainsLookup)
+ArrayField.register_lookup(OverlapLookup)
+ArrayField.register_lookup(ArrayLenTransform)
+ArrayField.register_lookup(AnyStartswithLookup)
+ArrayField.register_lookup(AnyIStartswithLookup)
+ArrayField.register_lookup(AnyEndswithLookup)
+ArrayField.register_lookup(AnyIEndswithLookup)
+ArrayField.register_lookup(AnyContainsLookup)
+ArrayField.register_lookup(AnyIContainsLookup)
+
+if StrictVersion(django.get_version()) < StrictVersion('1.9'):
+    class IndexTransform(models.Transform):
         def __init__(self, index, field, *args, **kwargs):
             super(IndexTransform, self).__init__(*args, **kwargs)
             self.index = index
@@ -397,128 +400,48 @@ if django.VERSION[:2] >= (1, 7):
         def as_sql(self, qn, connection):
             lhs, params = qn.compile(self.lhs)
             return "%s[%s]" % (lhs, self.index), params
-
-            # TODO: Temporary not supported nested index lookup
-            # @property
-            # def output_type(self):
-            # output_type = self.field.__class__(dimension=self.field._dimension-1)
-            # output_type._array_type = self.field._array_type
-            # output_type._explicit_type_cast = self.field._explicit_type_cast
-            # output_type._type_cast = self.field._type_cast
-            # output_type.set_attributes_from_name(self.field.name)
-            # return output_type
-
-    class SliceTransform(Transform):
-        def __init__(self, start, end, *args, **kwargs):
-            super(SliceTransform, self).__init__(*args, **kwargs)
-            self.start = start
-            self.end = end
+else:
+    class IndexTransform(models.Transform):
+        def __init__(self, index, field, *args, **kwargs):
+            super(IndexTransform, self).__init__(*args, output_field=field, **kwargs)
+            self.index = index
 
         def as_sql(self, qn, connection):
             lhs, params = qn.compile(self.lhs)
-            return "%s[%s:%s]" % (lhs, self.start, self.end), params
+            return "%s[%s]" % (lhs, self.index), params
 
-    class IndexTransformFactory(object):
-        def __init__(self, index, field):
-            self.index = index
-            self.field = field
+        # TODO: Temporary not supported nested index lookup
+        # @property
+        # def output_type(self):
+        # output_type = self.field.__class__(dimension=self.field._dimension-1)
+        # output_type._array_type = self.field._array_type
+        # output_type._explicit_type_cast = self.field._explicit_type_cast
+        # output_type._type_cast = self.field._type_cast
+        # output_type.set_attributes_from_name(self.field.name)
+        # return output_type
 
-        def __call__(self, *args, **kwargs):
-            return IndexTransform(self.index, self.field, *args, **kwargs)
+class SliceTransform(models.Transform):
+    def __init__(self, start, end, *args, **kwargs):
+        super(SliceTransform, self).__init__(*args, **kwargs)
+        self.start = start
+        self.end = end
 
-    class SliceTransformFactory(object):
-        def __init__(self, start, end):
-            self.start = start
-            self.end = end
+    def as_sql(self, qn, connection):
+        lhs, params = qn.compile(self.lhs)
+        return "%s[%s:%s]" % (lhs, self.start, self.end), params
 
-        def __call__(self, *args, **kwargs):
-            return SliceTransform(self.start, self.end, *args, **kwargs)
+class IndexTransformFactory(object):
+    def __init__(self, index, field):
+        self.index = index
+        self.field = field
 
+    def __call__(self, *args, **kwargs):
+        return IndexTransform(self.index, self.field, *args, **kwargs)
 
-# South support
-try:
-    from south.modelsinspector import add_introspection_rules
+class SliceTransformFactory(object):
+    def __init__(self, start, end):
+        self.start = start
+        self.end = end
 
-    add_introspection_rules([
-                                (
-                                    [ArrayField],  # class
-                                    [],  # positional params
-                                    {
-                                        "dbtype": ["_array_type", {"default": "int"}],
-                                        "dimension": ["_dimension", {"default": 1}],
-                                        "null": ["null", {"default": True}],
-                                    }
-                                )
-                            ], ["^djorm_pgarray\.fields\.ArrayField"])
-    add_introspection_rules([
-                                (
-                                    [TextArrayField],  # class
-                                    [],  # positional params
-                                    {
-                                        "dimension": ["_dimension", {"default": 1}],
-                                        "null": ["null", {"default": True}],
-                                    }
-                                )
-                            ], ["^djorm_pgarray\.fields\.TextArrayField"])
-    add_introspection_rules([
-                                (
-                                    [FloatArrayField],  # class
-                                    [],  # positional params
-                                    {
-                                        "dimension": ["_dimension", {"default": 1}],
-                                        "null": ["null", {"default": True}],
-                                    }
-                                )
-                            ], ["^djorm_pgarray\.fields\.FloatArrayField"])
-    add_introspection_rules([
-                                (
-                                    [IntegerArrayField],  # class
-                                    [],  # positional params
-                                    {
-                                        "dimension": ["_dimension", {"default": 1}],
-                                        "null": ["null", {"default": True}],
-                                    }
-                                )
-                            ], ["^djorm_pgarray\.fields\.IntegerArrayField"])
-    add_introspection_rules([
-                                (
-                                    [BigIntegerArrayField],  # class
-                                    [],  # positional params
-                                    {
-                                        "dimension": ["_dimension", {"default": 1}],
-                                        "null": ["null", {"default": True}],
-                                    }
-                                )
-                            ], ["^djorm_pgarray\.fields\.BigIntegerArrayField"])
-    add_introspection_rules([
-                                (
-                                    [SmallIntegerArrayField],  # class
-                                    [],  # positional params
-                                    {
-                                        "dimension": ["_dimension", {"default": 1}],
-                                        "null": ["null", {"default": True}],
-                                    }
-                                )
-                            ], ["^djorm_pgarray\.fields\.SmallIntegerArrayField"])
-    add_introspection_rules([
-                                (
-                                    [DateTimeArrayField],  # class
-                                    [],  # positional params
-                                    {
-                                        "dimension": ["_dimension", {"default": 1}],
-                                        "null": ["null", {"default": True}],
-                                    }
-                                )
-                            ], ["^djorm_pgarray\.fields\.DateTimeArrayField"])
-    add_introspection_rules([
-                                (
-                                    [DateArrayField],  # class
-                                    [],  # positional params
-                                    {
-                                        "dimension": ["_dimension", {"default": 1}],
-                                        "null": ["null", {"default": True}],
-                                    }
-                                )
-                            ], ["^djorm_pgarray\.fields\.DateArrayField"])
-except ImportError:
-    pass
+    def __call__(self, *args, **kwargs):
+        return SliceTransform(self.start, self.end, *args, **kwargs)

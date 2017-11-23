@@ -193,13 +193,12 @@ class ArrayFieldTests(TestCase):
         form_field = model_field.formfield(form_class=FakeFieldClass)
         self.assertIsInstance(form_field, FakeFieldClass)
 
-    if django.VERSION[:2] >= (1, 6):
-        def test_default_formfield_with_choices(self):
-            model_field = ArrayField(choices=[('a', 'a')], dbtype='text')
-            form_field = model_field.formfield()
-            self.assertIsInstance(form_field, forms.TypedMultipleChoiceField)
-            self.assertEqual(form_field.choices, [('a', 'a')])
-            self.assertEqual(form_field.coerce, force_text)
+    def test_default_formfield_with_choices(self):
+        model_field = ArrayField(choices=[('a', 'a')], dbtype='text')
+        form_field = model_field.formfield()
+        self.assertIsInstance(form_field, forms.TypedMultipleChoiceField)
+        self.assertEqual(form_field.choices, [('a', 'a')])
+        self.assertEqual(form_field.coerce, force_text)
 
     def test_other_types_properly_casted(self):
         obj = MultiTypeModel.objects.create(
@@ -237,192 +236,191 @@ class ArrayFieldTests(TestCase):
         obj.save()
 
 
-if django.VERSION[:2] >= (1, 7):
-    class AdditionalArrayFieldTests(TestCase):
-        def setUp(self):
-            IntModel.objects.all().delete()
+class AdditionalArrayFieldTests(TestCase):
+    def setUp(self):
+        IntModel.objects.all().delete()
 
-        def test_exact(self):
-            obj = IntModel.objects.create(field=[1])
-            qs = IntModel.objects.filter(field__exact=[1])
-            self.assertEqual(qs.count(), 1)
+    def test_exact(self):
+        obj = IntModel.objects.create(field=[1])
+        qs = IntModel.objects.filter(field__exact=[1])
+        self.assertEqual(qs.count(), 1)
 
-        def test_isnull(self):
-            obj = IntModel.objects.create(field=[1])
-            obj = IntModel.objects.create(field=None)
-            qs = IntModel.objects.filter(field__isnull=True)
-            self.assertEqual(qs.count(), 1)
+    def test_isnull(self):
+        obj = IntModel.objects.create(field=[1])
+        obj = IntModel.objects.create(field=None)
+        qs = IntModel.objects.filter(field__isnull=True)
+        self.assertEqual(qs.count(), 1)
 
-        def test_in(self):
-            obj = IntModel.objects.create(field=[1])
-            obj = IntModel.objects.create(field=[2])
-            obj = IntModel.objects.create(field=[3])
+    def test_in(self):
+        obj = IntModel.objects.create(field=[1])
+        obj = IntModel.objects.create(field=[2])
+        obj = IntModel.objects.create(field=[3])
 
-            qs = IntModel.objects.filter(field__in=[[1], [2]])
-            self.assertEqual(qs.count(), 2)
+        qs = IntModel.objects.filter(field__in=[[1], [2]])
+        self.assertEqual(qs.count(), 2)
 
-        def test_index(self):
-            obj = IntModel.objects.create(field=[1, 2])
-            obj = IntModel.objects.create(field=[2, 3])
-            obj = IntModel.objects.create(field=[3, 4])
+    def test_index(self):
+        obj = IntModel.objects.create(field=[1, 2])
+        obj = IntModel.objects.create(field=[2, 3])
+        obj = IntModel.objects.create(field=[3, 4])
 
-            qs = IntModel.objects.filter(field__0__in=[1, 2]).order_by("id")
-            self.assertEqual(qs.count(), 2)
-            self.assertSequenceEqual(qs[0].field, [1, 2])
-            self.assertSequenceEqual(qs[1].field, [2, 3])
+        qs = IntModel.objects.filter(field__0__in=[1, 2]).order_by("id")
+        self.assertEqual(qs.count(), 2)
+        self.assertSequenceEqual(qs[0].field, [1, 2])
+        self.assertSequenceEqual(qs[1].field, [2, 3])
 
-            qs = IntModel.objects.filter(field__0=1)
-            self.assertEqual(qs.count(), 1)
-            self.assertSequenceEqual(qs[0].field, [1, 2])
+        qs = IntModel.objects.filter(field__0=1)
+        self.assertEqual(qs.count(), 1)
+        self.assertSequenceEqual(qs[0].field, [1, 2])
 
-            # TODO: temporary not supported nested index search :(
-            # obj = IntModel.objects.create(field2=[[1, 2], [3, 4]])
-            # obj = IntModel.objects.create(field2=[[5, 6], [7, 8]])
-            # qs = IntModel.objects.filter(field2__0__0=1)
-            # self.assertEqual(qs.count(), 1)
+        # TODO: temporary not supported nested index search :(
+        # obj = IntModel.objects.create(field2=[[1, 2], [3, 4]])
+        # obj = IntModel.objects.create(field2=[[5, 6], [7, 8]])
+        # qs = IntModel.objects.filter(field2__0__0=1)
+        # self.assertEqual(qs.count(), 1)
 
-        def test_slice(self):
-            obj = IntModel.objects.create(field=[2])
-            obj = IntModel.objects.create(field=[2, 3])
-            obj = IntModel.objects.create(field=[5])
-            obj = IntModel.objects.create(field=[6, 3])
+    def test_slice(self):
+        obj = IntModel.objects.create(field=[2])
+        obj = IntModel.objects.create(field=[2, 3])
+        obj = IntModel.objects.create(field=[5])
+        obj = IntModel.objects.create(field=[6, 3])
 
-            qs = IntModel.objects.filter(field__0_1=[2])
-            self.assertEqual(qs.count(), 2)
+        qs = IntModel.objects.filter(field__0_1=[2])
+        self.assertEqual(qs.count(), 2)
 
-        @unittest.expectedFailure
-        def test_index_1(self):
-            obj = IntModel.objects.create(field2=[[1, 2], [3, 4]])
-            obj = IntModel.objects.create(field2=[[5, 6], [7, 8]])
+    @unittest.expectedFailure
+    def test_index_1(self):
+        obj = IntModel.objects.create(field2=[[1, 2], [3, 4]])
+        obj = IntModel.objects.create(field2=[[5, 6], [7, 8]])
 
-            qs = IntModel.objects.filter(field2__0=[1, 2])
-            self.assertEqual(qs.count(), 1)
+        qs = IntModel.objects.filter(field2__0=[1, 2])
+        self.assertEqual(qs.count(), 1)
 
-        def test_len(self):
-            obj = IntModel.objects.create(field=[1, 2])
-            obj = IntModel.objects.create(field=[2, 3, 4])
+    def test_len(self):
+        obj = IntModel.objects.create(field=[1, 2])
+        obj = IntModel.objects.create(field=[2, 3, 4])
 
-            qs = IntModel.objects.filter(field__len__lte=2)
-            self.assertEqual(qs.count(), 1)
+        qs = IntModel.objects.filter(field__len__lte=2)
+        self.assertEqual(qs.count(), 1)
 
-        def test_contains_lookup(self):
-            obj1 = IntModel.objects.create(field=[1, 4, 3])
-            obj2 = IntModel.objects.create(field=[0, 10, 50])
+    def test_contains_lookup(self):
+        obj1 = IntModel.objects.create(field=[1, 4, 3])
+        obj2 = IntModel.objects.create(field=[0, 10, 50])
 
-            qs = IntModel.objects.filter(field__contains=[1, 3])
-            self.assertEqual(qs.count(), 1)
+        qs = IntModel.objects.filter(field__contains=[1, 3])
+        self.assertEqual(qs.count(), 1)
 
-        def test_contained_by_lookup(self):
-            obj1 = IntModel.objects.create(field=[2, 7])
-            obj2 = IntModel.objects.create(field=[0, 10, 50])
+    def test_contained_by_lookup(self):
+        obj1 = IntModel.objects.create(field=[2, 7])
+        obj2 = IntModel.objects.create(field=[0, 10, 50])
 
-            qs = IntModel.objects.filter(field__contained_by=[1, 7, 4, 2, 6])
-            self.assertEqual(qs.count(), 1)
+        qs = IntModel.objects.filter(field__contained_by=[1, 7, 4, 2, 6])
+        self.assertEqual(qs.count(), 1)
 
-        def test_overlap_lookup(self):
-            obj1 = IntModel.objects.create(field=[1, 4, 3])
-            obj2 = IntModel.objects.create(field=[0, 10, 50])
+    def test_overlap_lookup(self):
+        obj1 = IntModel.objects.create(field=[1, 4, 3])
+        obj2 = IntModel.objects.create(field=[0, 10, 50])
 
-            qs = IntModel.objects.filter(field__overlap=[2, 1])
-            self.assertEqual(qs.count(), 1)
+        qs = IntModel.objects.filter(field__overlap=[2, 1])
+        self.assertEqual(qs.count(), 1)
 
-        def test_contains_unicode(self):
-            obj = TextModel.objects.create(field=[u"Fóö", u"Пример", u"test"])
-            qs = TextModel.objects.filter(field__contains=[u"Пример"])
-            self.assertEqual(qs.count(), 1)
+    def test_contains_unicode(self):
+        obj = TextModel.objects.create(field=[u"Fóö", u"Пример", u"test"])
+        qs = TextModel.objects.filter(field__contains=[u"Пример"])
+        self.assertEqual(qs.count(), 1)
 
-        def test_deconstruct_defaults(self):
-            """Attributes at default values left out of deconstruction."""
-            af = ArrayField()
+    def test_deconstruct_defaults(self):
+        """Attributes at default values left out of deconstruction."""
+        af = ArrayField()
 
-            name, path, args, kwargs = af.deconstruct()
+        name, path, args, kwargs = af.deconstruct()
 
-            naf = ArrayField(*args, **kwargs)
+        naf = ArrayField(*args, **kwargs)
 
-            self.assertEqual((args, kwargs), ([], {}))
-            self.assertEqual(af._array_type, naf._array_type)
-            self.assertEqual(af._dimension, naf._dimension)
-            self.assertEqual(af._type_cast, naf._type_cast)
-            self.assertEqual(af.blank, naf.blank)
-            self.assertEqual(af.null, naf.null)
-            self.assertEqual(af.default, naf.default)
+        self.assertEqual((args, kwargs), ([], {}))
+        self.assertEqual(af._array_type, naf._array_type)
+        self.assertEqual(af._dimension, naf._dimension)
+        self.assertEqual(af._type_cast, naf._type_cast)
+        self.assertEqual(af.blank, naf.blank)
+        self.assertEqual(af.null, naf.null)
+        self.assertEqual(af.default, naf.default)
 
-        def test_deconstruct_custom(self):
-            """Attributes at custom values included in deconstruction."""
-            af = ArrayField(
-                dbtype='text',
-                dimension=2,
-                type_cast=custom_type_cast,
-                blank=False,
-                null=False,
-                default=[['a'], ['b']],
-            )
+    def test_deconstruct_custom(self):
+        """Attributes at custom values included in deconstruction."""
+        af = ArrayField(
+            dbtype='text',
+            dimension=2,
+            type_cast=custom_type_cast,
+            blank=False,
+            null=False,
+            default=[['a'], ['b']],
+        )
 
-            name, path, args, kwargs = af.deconstruct()
+        name, path, args, kwargs = af.deconstruct()
 
-            naf = ArrayField(*args, **kwargs)
+        naf = ArrayField(*args, **kwargs)
 
-            self.assertEqual(args, [])
-            self.assertEqual(
-                kwargs,
-                {
-                    'dbtype': 'text',
-                    'dimension': 2,
-                    'type_cast': custom_type_cast,
-                    'blank': False,
-                    'null': False,
-                    'default': [['a'], ['b']],
-                },
-            )
-            self.assertEqual(af._array_type, naf._array_type)
-            self.assertEqual(af._dimension, naf._dimension)
-            self.assertEqual(af._type_cast, naf._type_cast)
-            self.assertEqual(af.blank, naf.blank)
-            self.assertEqual(af.null, naf.null)
-            self.assertEqual(af.default, naf.default)
+        self.assertEqual(args, [])
+        self.assertEqual(
+            kwargs,
+            {
+                'dbtype': 'text',
+                'dimension': 2,
+                'type_cast': custom_type_cast,
+                'blank': False,
+                'null': False,
+                'default': [['a'], ['b']],
+            },
+        )
+        self.assertEqual(af._array_type, naf._array_type)
+        self.assertEqual(af._dimension, naf._dimension)
+        self.assertEqual(af._type_cast, naf._type_cast)
+        self.assertEqual(af.blank, naf.blank)
+        self.assertEqual(af.null, naf.null)
+        self.assertEqual(af.default, naf.default)
 
-        def test_deconstruct_unknown_dbtype(self):
-            """Deconstruction does not include type_cast if dbtype unknown."""
-            af = ArrayField(dbtype='foo')
+    def test_deconstruct_unknown_dbtype(self):
+        """Deconstruction does not include type_cast if dbtype unknown."""
+        af = ArrayField(dbtype='foo')
 
-            name, path, args, kwargs = af.deconstruct()
+        name, path, args, kwargs = af.deconstruct()
 
-            naf = ArrayField(*args, **kwargs)
+        naf = ArrayField(*args, **kwargs)
 
-            self.assertEqual(kwargs, {'dbtype': 'foo'})
+        self.assertEqual(kwargs, {'dbtype': 'foo'})
 
-        def test_lookup_text_stubs_in_one_dimension(self):
-            """
-            Tests whether we're able to lookup text stubs in a simple array field
-            """
-            # Setting up some objects, useful for stub-querying
-            tm1 = TextModel.objects.create(field=['a.v1', 'a.v2', 'b.v1'])
-            tm2 = TextModel.objects.create(field=['c.v1', 'c.v2', 'b.v2'])
-            tm3 = TextModel.objects.create(field=['d.1'])
+    def test_lookup_text_stubs_in_one_dimension(self):
+        """
+        Tests whether we're able to lookup text stubs in a simple array field
+        """
+        # Setting up some objects, useful for stub-querying
+        tm1 = TextModel.objects.create(field=['a.v1', 'a.v2', 'b.v1'])
+        tm2 = TextModel.objects.create(field=['c.v1', 'c.v2', 'b.v2'])
+        tm3 = TextModel.objects.create(field=['d.1'])
 
-            i1 = Item2.objects.create(tags=['SOME', 'CONTENT'])
-            i2 = Item2.objects.create(tags=['some', 'content'])
+        i1 = Item2.objects.create(tags=['SOME', 'CONTENT'])
+        i2 = Item2.objects.create(tags=['some', 'content'])
 
-            # Query...
-            self.assertEqual(tm1, TextModel.objects.get(field__any_startswith='a'))
-            self.assertEqual(tm2, TextModel.objects.get(field__any_istartswith='C'))
-            self.assertEqual(2, TextModel.objects.filter(field__any_icontains='V').count())
-            self.assertEqual(2, TextModel.objects.filter(field__any_endswith='2').count())
+        # Query...
+        self.assertEqual(tm1, TextModel.objects.get(field__any_startswith='a'))
+        self.assertEqual(tm2, TextModel.objects.get(field__any_istartswith='C'))
+        self.assertEqual(2, TextModel.objects.filter(field__any_icontains='V').count())
+        self.assertEqual(2, TextModel.objects.filter(field__any_endswith='2').count())
 
-            self.assertEqual(i2, Item2.objects.get(tags__any_contains='ont'))
-            self.assertEqual(2, Item2.objects.filter(tags__any_icontains='ont').count())
+        self.assertEqual(i2, Item2.objects.get(tags__any_contains='ont'))
+        self.assertEqual(2, Item2.objects.filter(tags__any_icontains='ont').count())
 
-        def test_lookup_text_stubs_in_multiple_dimensions(self):
-            """
-            Tests whether we're able to lookup text stubs in more than one dimension
-            """
-            # Settings up an object or two...
-            mtm1 = MTextModel.objects.create(data=[['this', 'is'], ['some', 'content']])
-            mtm2 = MTextModel.objects.create(data=[['THIS', 'IS'], ['SOME', 'MORE']])
+    def test_lookup_text_stubs_in_multiple_dimensions(self):
+        """
+        Tests whether we're able to lookup text stubs in more than one dimension
+        """
+        # Settings up an object or two...
+        mtm1 = MTextModel.objects.create(data=[['this', 'is'], ['some', 'content']])
+        mtm2 = MTextModel.objects.create(data=[['THIS', 'IS'], ['SOME', 'MORE']])
 
-            # Query...
-            self.assertEqual(mtm1, MTextModel.objects.get(data__any_contains='is'))
-            self.assertEqual(2, MTextModel.objects.filter(data__any_icontains='is').count())
+        # Query...
+        self.assertEqual(mtm1, MTextModel.objects.get(data__any_contains='is'))
+        self.assertEqual(2, MTextModel.objects.filter(data__any_icontains='is').count())
 
 
 class ArrayFormFieldTests(TestCase):
