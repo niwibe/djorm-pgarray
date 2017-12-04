@@ -1,7 +1,7 @@
 djorm-pgarray documentation
 ===========================
 Andrey Antukh, <niwi@niwi.be>
-1.2.0
+1.3.0
 
 :toc:
 :numbered:
@@ -26,9 +26,9 @@ package name is changed.
 Requirements
 ------------
 
-- Python 2.7, 3.3 or 3.4
-- Django 1.5, 1.6 and 1.7
-- Psycopg2 >= 2.5.0
+- Python 2.7, 3.4 or 3.5
+- Django 1.8 -> 1.11
+- Psycopg2 >= 2.5.4
 
 
 Features

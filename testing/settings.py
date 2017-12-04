@@ -1,7 +1,5 @@
 import os, sys
 
-sys.path.insert(0, "..")
-
 PROJECT_ROOT = os.path.dirname(__file__)
 DEBUG = True
 TEMPLATE_DEBUG = DEBUG
@@ -10,7 +8,10 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql_psycopg2",
         "NAME": "test",
-        "USER": os.environ.get("USER", ""),
+        "USER": os.environ.get("DJANGO_DB_USER", os.environ.get("USER")),
+        'PASSWORD': os.environ.get("DJANGO_DB_PASSWORD", ""),
+        'HOST': '',
+        'PORT': '',
     }
 }
 
@@ -28,7 +29,7 @@ ADMIN_MEDIA_PREFIX = "/static/admin/"
 STATICFILES_DIRS = ()
 
 SECRET_KEY = "di!n($kqa3)nd%ikad#kcjpkd^uw*h%*kj=*pm7$vbo6ir7h=l"
-ROOT_URLCONF = "urls"
+ROOT_URLCONF = "testing.urls"
 
 MIDDLEWARE_CLASSES = [
     "django.middleware.common.CommonMiddleware",
@@ -45,7 +46,5 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.admin",
     "django.contrib.staticfiles",
-    "pg_array_fields",
+    "testing.pg_array_fields",
 ]
-
-TEST_RUNNER = "django.test.simple.DjangoTestSuiteRunner"
